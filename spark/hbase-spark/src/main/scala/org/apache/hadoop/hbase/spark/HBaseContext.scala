@@ -235,7 +235,7 @@ class HBaseContext(@transient val sc: SparkContext,
 
       @transient val ugi = UserGroupInformation.getCurrentUser
       // specify that this is a proxy user
-      ugi.setAuthenticationMethod(AuthenticationMethod.PROXY)
+      //ugi.setAuthenticationMethod(AuthenticationMethod.PROXY)
     }
   }
 
