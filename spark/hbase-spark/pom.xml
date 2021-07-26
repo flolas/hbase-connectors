@@ -132,8 +132,9 @@
       <artifactId>hbase-shaded-client</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.hbase.connectors.spark</groupId>
+      <groupId>ch.cern.hbase.connectors.spark</groupId>
       <artifactId>hbase-spark-protocol-shaded</artifactId>
+      <version>1.0.1_spark-3.0.1_4</version>
     </dependency>
     <dependency>
       <groupId>org.apache.yetus</groupId>
@@ -484,6 +485,7 @@
               </execution>
             </executions>
           </plugin>
+
           <plugin>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest-maven-plugin</artifactId>
@@ -504,6 +506,32 @@
                 <configuration>
                   <argLine>-Xmx1536m -XX:ReservedCodeCacheSize=512m</argLine>
                   <parallel>false</parallel>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- Maven Shade Plugin -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <executions>
+              <!-- Run shade goal on package phase -->
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>shade</goal>
+                </goals>
+                <configuration>
+                  <filters>
+                    <filter>
+                      <artifact>*:*</artifact>
+                      <excludes>
+                        <exclude>META-INF/*.SF</exclude>
+                        <exclude>META-INF/*.DSA</exclude>
+                        <exclude>META-INF/*.RSA</exclude>
+                      </excludes>
+                    </filter>
+                  </filters>
                 </configuration>
               </execution>
             </executions>

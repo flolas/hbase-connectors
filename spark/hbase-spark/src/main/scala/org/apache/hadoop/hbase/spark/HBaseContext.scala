@@ -21,15 +21,14 @@ import java.net.InetSocketAddress
 import java.util
 import java.util.UUID
 import javax.management.openmbean.KeyAlreadyExistsException
-
-import org.apache.yetus.audience.InterfaceAudience;
+import org.apache.yetus.audience.InterfaceAudience
 import org.apache.hadoop.hbase.fs.HFileSystem
 import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.io.compress.Compression
 import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding
-import org.apache.hadoop.hbase.io.hfile.{HFile, CacheConfig, HFileContextBuilder, HFileWriterImpl}
-import org.apache.hadoop.hbase.regionserver.{HStore, HStoreFile, StoreFileWriter, BloomType}
+import org.apache.hadoop.hbase.io.hfile.{CacheConfig, HFile, HFileContextBuilder, HFileWriterImpl}
+import org.apache.hadoop.hbase.regionserver.{BloomType, HStore, HStoreFile, StoreFileWriter}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.mapred.JobConf
 import org.apache.spark.broadcast.Broadcast
@@ -37,17 +36,22 @@ import org.apache.spark.rdd.RDD
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.spark.HBaseRDDFunctions._
 import org.apache.hadoop.hbase.client._
+
 import scala.reflect.ClassTag
 import org.apache.spark.{SerializableWritable, SparkContext}
-import org.apache.hadoop.hbase.mapreduce.{TableMapReduceUtil,
-TableInputFormat, IdentityTableMapper}
+import org.apache.hadoop.hbase.mapreduce.{IdentityTableMapper, TableInputFormat, TableMapReduceUtil}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.streaming.dstream.DStream
+
 import java.io._
-import org.apache.hadoop.security.UserGroupInformation
+import org.apache.hadoop.security.{SaslRpcServer, UserGroupInformation}
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod
-import org.apache.hadoop.fs.{Path, FileAlreadyExistsException, FileSystem}
+import org.apache.hadoop.fs.{FileAlreadyExistsException, FileSystem, Path}
+import org.apache.hadoop.hbase.security.token.TokenUtil
+import org.apache.hadoop.security.token.{Token, TokenIdentifier, TokenInfo}
+
+import java.security.PrivilegedExceptionAction
 import scala.collection.mutable
 
 /**
@@ -232,10 +236,34 @@ class HBaseContext(@transient val sc: SparkContext,
   def applyCreds[T] (){
     if (!appliedCredentials) {
       appliedCredentials = true
-
-      @transient val ugi = UserGroupInformation.getCurrentUser
+      println("START APPLY CREDENTIALS")
+      val keytab = System.getenv("KEYTAB_PATH")
+      val principal = System.getenv("KEYTAB_PRINCIPAL")
+      @transient val current_ugi = UserGroupInformation.getCurrentUser
       // specify that this is a proxy user
-      //ugi.setAuthenticationMethod(AuthenticationMethod.PROXY)
+      UserGroupInformation.setConfiguration(getConf(broadcastedConf))
+      val ugi = UserGroupInformation.loginUserFromKeytabAndReturnUGI(principal, keytab)
+      var hbaseConn: Connection = null
+      var hbaseToken: Token[_ <: TokenIdentifier] = null
+      hbaseToken = ugi.doAs(new PrivilegedExceptionAction[Token[_ <: TokenIdentifier]] {
+        override def run(): Token[_ <: TokenIdentifier] = {
+          println("Creating connection....")
+          hbaseConn = ConnectionFactory.createConnection(getConf(broadcastedConf))
+          println("Creating connection.... DONE")
+          TokenUtil.obtainToken(hbaseConn)
+        }
+      })
+      hbaseConn.close()
+
+      if(hbaseToken != null) {
+        println("Got HBase token: " + hbaseToken.toString)
+        current_ugi.addToken(hbaseToken.getService, hbaseToken)
+      }else{
+        println("TOKEN HBASE NULL")
+      }
+      println(current_ugi)
+      current_ugi.setAuthenticationMethod(AuthenticationMethod.TOKEN)
+      println("END APPLY CREDENTIALS")
     }
   }
 
@@ -427,7 +455,7 @@ class HBaseContext(@transient val sc: SparkContext,
    */
   def hbaseRDD[U: ClassTag](tableName: TableName, scan: Scan,
                             f: ((ImmutableBytesWritable, Result)) => U): RDD[U] = {
-
+    println("HBase RDD Executing")
     val job: Job = Job.getInstance(getConf(broadcastedConf))
 
     TableMapReduceUtil.initCredentials(job)
