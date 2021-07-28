@@ -17,10 +17,11 @@
 
 package org.apache.hadoop.hbase.spark
 
+import org.apache.hadoop.fs.Path
+
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
-
-import org.apache.yetus.audience.InterfaceAudience;
+import org.apache.yetus.audience.InterfaceAudience
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.mapred.TableOutputFormat
@@ -34,7 +35,7 @@ import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.CellUtil
 import org.apache.hadoop.mapred.JobConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SaveMode, Row, SQLContext}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 
@@ -131,7 +132,7 @@ case class HBaseRelation (
     LatestHBaseContextCache.latest
   } else {
     val config = HBaseConfiguration.create()
-    configResources.map(resource => resource.split(",").foreach(r => config.addResource(r)))
+    configResources.map(resource => resource.split(",").foreach(r => {config.addResource(new Path(r))}))
     new HBaseContext(sqlContext.sparkContext, config)
   }
 
