@@ -132,7 +132,7 @@ case class HBaseRelation (
     LatestHBaseContextCache.latest
   } else {
     val config = HBaseConfiguration.create()
-    configResources.map(resource => resource.split(",").foreach(r => {config.addResource(new Path(r))}))
+    configResources.map(resource => resource.split(",").foreach(r => {config.addResource(r)}))
     new HBaseContext(sqlContext.sparkContext, config)
   }
 
