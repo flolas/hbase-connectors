@@ -39,6 +39,7 @@ import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 
+import java.net.URL
 import scala.collection.mutable
 
 /**
@@ -128,11 +129,13 @@ case class HBaseRelation (
     HBaseSparkConf.BULKGET_SIZE,  HBaseSparkConf.DEFAULT_BULKGET_SIZE))
 
   //create or get latest HBaseContext
-  val hbaseContext:HBaseContext = if (useHBaseContext) {
+  val hbaseContext:HBaseContext = if (useHBaseContext && LatestHBaseContextCache.latest != null) {
+    logInfo("Using existing HBase Context")
     LatestHBaseContextCache.latest
   } else {
+    logInfo("Creating new HBase Context")
     val config = HBaseConfiguration.create()
-    configResources.map(resource => resource.split(",").foreach(r => {config.addResource(r)}))
+    configResources.map(resource => resource.split(",").foreach(r => {config.addResource(new Path(r))}))
     new HBaseContext(sqlContext.sparkContext, config)
   }
 

@@ -236,7 +236,6 @@ class HBaseContext(@transient val sc: SparkContext,
   def applyCreds[T] (){
     if (!appliedCredentials) {
       appliedCredentials = true
-      println("START APPLY CREDENTIALS")
       val keytab = System.getenv("KEYTAB_PATH")
       val principal = System.getenv("KEYTAB_PRINCIPAL")
       @transient val current_ugi = UserGroupInformation.getCurrentUser
@@ -247,23 +246,19 @@ class HBaseContext(@transient val sc: SparkContext,
       var hbaseToken: Token[_ <: TokenIdentifier] = null
       hbaseToken = ugi.doAs(new PrivilegedExceptionAction[Token[_ <: TokenIdentifier]] {
         override def run(): Token[_ <: TokenIdentifier] = {
-          println("Creating connection....")
+          logInfo("Creating connection....")
           hbaseConn = ConnectionFactory.createConnection(getConf(broadcastedConf))
-          println("Creating connection.... DONE")
+          logInfo("Obtaining HBase Token...")
           TokenUtil.obtainToken(hbaseConn)
         }
       })
       hbaseConn.close()
 
       if(hbaseToken != null) {
-        println("Got HBase token: " + hbaseToken.toString)
+        logInfo("Got HBase Token: " + hbaseToken.toString)
         current_ugi.addToken(hbaseToken.getService, hbaseToken)
-      }else{
-        println("TOKEN HBASE NULL")
       }
-      println(current_ugi)
       current_ugi.setAuthenticationMethod(AuthenticationMethod.TOKEN)
-      println("END APPLY CREDENTIALS")
     }
   }
 
